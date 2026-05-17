@@ -49,9 +49,9 @@ DEFAULTS: dict[str, list[dict]] = {
         {"id": "Conveyor_Running", "label": "Cinta en marcha",   "tag_name": "Conveyor_Running", "unit": "bool", "type": "BOOL", "min": 0,  "max": 1},
     ],
     "snmp": [
-        {"id": "cpu_load",    "label": "CPU Load",    "oid": "1.3.6.1.4.1.9999.1.1.0", "unit": "%",  "min": 0, "max": 100},
-        {"id": "temperatura", "label": "Temperatura", "oid": "1.3.6.1.4.1.9999.1.2.0", "unit": "°C", "min": 0, "max": 100},
-        {"id": "uptime",      "label": "Uptime",      "oid": "1.3.6.1.4.1.9999.1.3.0", "unit": "s",  "min": 0, "max": 999999},
+        {"id": "cpu_load",    "label": "CPU Load",    "oid": "1.3.6.1.4.1.9999.1.1.0", "unit": "%",  "snmp_type": "gauge32",         "min": 0,   "max": 100},
+        {"id": "temperatura", "label": "Temperatura", "oid": "1.3.6.1.4.1.9999.1.2.0", "unit": "°C", "snmp_type": "integer32_x100",  "min": -20, "max": 85},
+        {"id": "uptime",      "label": "Uptime",      "oid": "1.3.6.1.4.1.9999.1.3.0", "unit": "s",  "snmp_type": "counter32",       "min": 0,   "max": 999999},
     ],
 }
 
@@ -111,11 +111,12 @@ EDITABLE_FIELDS = {
         {"key": "max",      "label": "Máx señal", "type": "number"},
     ],
     "snmp": [
-        {"key": "label", "label": "Nombre",  "type": "text"},
-        {"key": "unit",  "label": "Unidad",  "type": "text"},
-        {"key": "oid",   "label": "OID",     "type": "text"},
-        {"key": "min",   "label": "Mín señal","type": "number"},
-        {"key": "max",   "label": "Máx señal","type": "number"},
+        {"key": "label",     "label": "Nombre",    "type": "text"},
+        {"key": "unit",      "label": "Unidad",    "type": "text"},
+        {"key": "oid",       "label": "OID",       "type": "text"},
+        {"key": "snmp_type", "label": "Tipo SNMP (gauge32 / integer32_x100 / integer32 / counter32)", "type": "text"},
+        {"key": "min",       "label": "Mín señal", "type": "number"},
+        {"key": "max",       "label": "Máx señal", "type": "number"},
     ],
 }
 
