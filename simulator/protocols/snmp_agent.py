@@ -122,6 +122,9 @@ def _handle_snmp(data: bytes) -> bytes | None:
         _, _, pp = _read_tlv(pdu, pp)               # error-index (ignored)
         _, vbl, pp = _read_tlv(pdu, pp)             # varbind list
 
+        # Sorted OID list for GETNEXT traversal
+        sorted_oids = sorted(OIDS.items(), key=lambda x: x[1])
+
         # Build response varbinds
         resp_varbinds = b''
         vp = 0
@@ -130,15 +133,25 @@ def _handle_snmp(data: bytes) -> bytes | None:
             _, oid_bytes, _ = _read_tlv(vb, 0)
             oid_tuple = _parse_oid(oid_bytes)
 
-            # Look up value
-            tag_id = next((tid for tid, ot in OIDS.items() if ot == oid_tuple), None)
-            oid_tlv = _enc_oid(oid_tuple)
-
-            if tag_id and tag_id in _current_values:
-                val_tlv = _enc_gauge32(_current_values[tag_id])
-            else:
-                # noSuchObject (0x80, length 0) for unknown OIDs
-                val_tlv = _tlv(0x80, b'')
+            if pdu_tag == 0xa1:  # GETNEXT: find next lexicographic OID
+                next_tid = next(
+                    (tid for tid, ot in sorted_oids if ot > oid_tuple), None
+                )
+                if next_tid:
+                    oid_tuple = OIDS[next_tid]
+                    oid_tlv = _enc_oid(oid_tuple)
+                    val_tlv = _enc_gauge32(_current_values.get(next_tid, 0))
+                else:
+                    # endOfMibView
+                    oid_tlv = _enc_oid(oid_tuple)
+                    val_tlv = _tlv(0x82, b'')
+            else:  # GET: exact match
+                tag_id = next((tid for tid, ot in OIDS.items() if ot == oid_tuple), None)
+                oid_tlv = _enc_oid(oid_tuple)
+                if tag_id and tag_id in _current_values:
+                    val_tlv = _enc_gauge32(_current_values[tag_id])
+                else:
+                    val_tlv = _tlv(0x80, b'')  # noSuchObject
 
             resp_varbinds += _tlv(0x30, oid_tlv + val_tlv)
 
