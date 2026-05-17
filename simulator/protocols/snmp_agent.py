@@ -14,13 +14,20 @@ log = logging.getLogger("snmp")
 PORT = 161
 UPDATE_INTERVAL = 2.0
 
-OIDS: dict[str, tuple] = {
-    "cpu_load":    (1, 3, 6, 1, 4, 1, 9999, 1, 1, 0),
-    "temperatura": (1, 3, 6, 1, 4, 1, 9999, 1, 2, 0),
-    "uptime":      (1, 3, 6, 1, 4, 1, 9999, 1, 3, 0),
-}
-
 _current_values: dict[str, int] = {}
+
+
+def _build_oids() -> dict[str, tuple]:
+    """Construye el mapa tag_id → OID tuple desde PROTOCOLS (soporta edición en caliente)."""
+    result = {}
+    for tag in PROTOCOLS.get("snmp", []):
+        oid_str = tag.get("oid", "")
+        if oid_str:
+            try:
+                result[tag["id"]] = tuple(int(x) for x in oid_str.strip().split("."))
+            except ValueError:
+                log.warning("SNMP: OID inválido para %s: %s", tag["id"], oid_str)
+    return result
 
 
 # ── BER encode helpers ────────────────────────────────────────────────────────
@@ -122,8 +129,9 @@ def _handle_snmp(data: bytes) -> bytes | None:
         _, _, pp = _read_tlv(pdu, pp)               # error-index (ignored)
         _, vbl, pp = _read_tlv(pdu, pp)             # varbind list
 
-        # Sorted OID list for GETNEXT traversal
-        sorted_oids = sorted(OIDS.items(), key=lambda x: x[1])
+        # OIDs frescos desde config (soporta edición en caliente)
+        oids = _build_oids()
+        sorted_oids = sorted(oids.items(), key=lambda x: x[1])
 
         # Build response varbinds
         resp_varbinds = b''
@@ -138,15 +146,14 @@ def _handle_snmp(data: bytes) -> bytes | None:
                     (tid for tid, ot in sorted_oids if ot > oid_tuple), None
                 )
                 if next_tid:
-                    oid_tuple = OIDS[next_tid]
+                    oid_tuple = oids[next_tid]
                     oid_tlv = _enc_oid(oid_tuple)
                     val_tlv = _enc_gauge32(_current_values.get(next_tid, 0))
                 else:
-                    # endOfMibView
                     oid_tlv = _enc_oid(oid_tuple)
-                    val_tlv = _tlv(0x82, b'')
+                    val_tlv = _tlv(0x82, b'')  # endOfMibView
             else:  # GET: exact match
-                tag_id = next((tid for tid, ot in OIDS.items() if ot == oid_tuple), None)
+                tag_id = next((tid for tid, ot in oids.items() if ot == oid_tuple), None)
                 oid_tlv = _enc_oid(oid_tuple)
                 if tag_id and tag_id in _current_values:
                     val_tlv = _enc_gauge32(_current_values[tag_id])
@@ -189,11 +196,10 @@ class _SNMPServer(asyncio.DatagramProtocol):
 # ── value updater + main entry ────────────────────────────────────────────────
 
 async def _value_updater():
-    tags = PROTOCOLS["snmp"]
     while True:
-        for tag in tags:
+        for tag in PROTOCOLS.get("snmp", []):  # lee config viva
             override = state.get_override("snmp", tag["id"])
-            val = get_signal(tag["id"], tag["unit"], override)
+            val = get_signal(tag["id"], tag.get("unit", "%"), override)
             await state.update("snmp", tag["id"], val)
             _current_values[tag["id"]] = int(abs(val))
         await asyncio.sleep(UPDATE_INTERVAL)

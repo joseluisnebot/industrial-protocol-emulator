@@ -4,50 +4,19 @@
 import asyncio
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from simulator import config as _cfg
 
-# ── Definición de tags por protocolo ──────────────────────────────────────────
+# PROTOCOLS se carga desde JSON (o defaults si no existe el fichero).
+# Es un dict mutable — los servidores lo leen al arrancar cada `run()`.
+PROTOCOLS: dict[str, list[dict]] = _cfg.load()
 
-PROTOCOLS: dict[str, list[dict]] = {
-    "modbus": [
-        {"id": "frecuencia_salida",  "address": 40001, "unit": "Hz",  "type": "float32", "scale": 0.01},
-        {"id": "corriente_motor",    "address": 40003, "unit": "A",   "type": "float32", "scale": 0.1},
-        {"id": "tension_dc",         "address": 40005, "unit": "V",   "type": "float32", "scale": 0.1},
-        {"id": "temperatura_igbt",   "address": 40015, "unit": "°C",  "type": "float32", "scale": 0.1},
-        {"id": "potencia_activa",    "address": 40007, "unit": "kW",  "type": "float32", "scale": 0.1},
-    ],
-    "opcua": [
-        {"id": "Motor_Speed",    "node_id": "ns=2;s=Motor/Speed",    "unit": "rpm"},
-        {"id": "Motor_Current",  "node_id": "ns=2;s=Motor/Current",  "unit": "A"},
-        {"id": "Temp_Ambient",   "node_id": "ns=2;s=Temp/Ambient",   "unit": "°C"},
-    ],
-    "mqtt": [
-        {"id": "temperatura", "topic": "planta/sensor1/temperatura", "unit": "°C"},
-        {"id": "humedad",     "topic": "planta/sensor1/humedad",     "unit": "%"},
-        {"id": "energia",     "topic": "planta/contador/energia",    "unit": "kWh"},
-    ],
-    "bacnet": [
-        {"id": "temperatura", "object_type": "analogInput",  "instance": 1, "unit": "°C"},
-        {"id": "presion",     "object_type": "analogInput",  "instance": 2, "unit": "bar"},
-        {"id": "caudal",      "object_type": "analogInput",  "instance": 3, "unit": "m3/h"},
-    ],
-    "dnp3": [
-        {"id": "voltaje",            "group": 30, "variation": 5, "index": 0, "unit": "V"},
-        {"id": "corriente",          "group": 30, "variation": 5, "index": 1, "unit": "A"},
-        {"id": "potencia",           "group": 30, "variation": 5, "index": 2, "unit": "kW"},
-        {"id": "estado_interruptor", "group": 1,  "variation": 2, "index": 0, "unit": "bool"},
-    ],
-    "ethernetip": [
-        {"id": "Motor_Speed",       "tag_name": "Motor_Speed",       "unit": "rpm",  "type": "REAL"},
-        {"id": "Motor_Current",     "tag_name": "Motor_Current",     "unit": "A",    "type": "REAL"},
-        {"id": "Conveyor_Running",  "tag_name": "Conveyor_Running",  "unit": "bool", "type": "BOOL"},
-    ],
-    "snmp": [
-        {"id": "cpu_load",    "oid": "1.3.6.1.4.1.9999.1.1.0", "unit": "%"},
-        {"id": "temperatura", "oid": "1.3.6.1.4.1.9999.1.2.0", "unit": "°C"},
-        {"id": "uptime",      "oid": "1.3.6.1.4.1.9999.1.3.0", "unit": "s"},
-    ],
-}
+
+def reload_protocols(new_protocols: dict):
+    """Actualiza PROTOCOLS in-place y persiste en disco."""
+    PROTOCOLS.clear()
+    PROTOCOLS.update(new_protocols)
+    _cfg.save(new_protocols)
+
 
 # ── Estado en tiempo real ──────────────────────────────────────────────────────
 
@@ -56,7 +25,7 @@ class TagState:
     value: float = 0.0
     unit: str = ""
     ts: float = field(default_factory=time.time)
-    override: dict | None = None   # {min, max, pattern} o None para auto
+    override: dict | None = None
 
 
 class SimulatorState:
@@ -65,20 +34,41 @@ class SimulatorState:
         self._values: dict[str, dict[str, TagState]] = {}
         self._server_status: dict[str, bool] = {}
         self._subscribers: list[asyncio.Queue] = []
+        self._init_from_protocols()
 
-        # Inicializar estado vacío
+    def _init_from_protocols(self):
         for proto, tags in PROTOCOLS.items():
-            self._values[proto] = {}
+            if proto not in self._values:
+                self._values[proto] = {}
             for tag in tags:
-                self._values[proto][tag["id"]] = TagState(unit=tag.get("unit", ""))
-            self._server_status[proto] = False
+                tid = tag["id"]
+                if tid not in self._values[proto]:
+                    self._values[proto][tid] = TagState(unit=tag.get("unit", ""))
+            if proto not in self._server_status:
+                self._server_status[proto] = False
+
+    def reinit_protocol(self, protocol: str):
+        """Reinicializa el estado de un protocolo tras cambio de tags."""
+        tags = PROTOCOLS.get(protocol, [])
+        self._values[protocol] = {
+            tag["id"]: TagState(unit=tag.get("unit", "")) for tag in tags
+        }
+        self._server_status[protocol] = False
 
     async def update(self, protocol: str, tag_id: str, value: float):
         async with self._lock:
-            if protocol in self._values and tag_id in self._values[protocol]:
-                self._values[protocol][tag_id].value = value
-                self._values[protocol][tag_id].ts = time.time()
-        await self._notify(protocol, tag_id, value)
+            if protocol not in self._values:
+                self._values[protocol] = {}
+            if tag_id not in self._values[protocol]:
+                unit = next(
+                    (t.get("unit", "") for t in PROTOCOLS.get(protocol, []) if t["id"] == tag_id),
+                    ""
+                )
+                self._values[protocol][tag_id] = TagState(unit=unit)
+            self._values[protocol][tag_id].value = value
+            self._values[protocol][tag_id].ts = time.time()
+        unit = self._values[protocol][tag_id].unit
+        await self._notify(protocol, tag_id, value, unit)
 
     async def set_override(self, protocol: str, tag_id: str, override: dict | None):
         async with self._lock:
@@ -109,14 +99,13 @@ class SimulatorState:
         return q
 
     def unsubscribe(self, q: asyncio.Queue):
-        self._subscribers.discard(q) if hasattr(self._subscribers, 'discard') else None
         try:
             self._subscribers.remove(q)
         except ValueError:
             pass
 
-    async def _notify(self, protocol: str, tag_id: str, value: float):
-        msg = {"protocol": protocol, "tag_id": tag_id, "value": value, "ts": time.time()}
+    async def _notify(self, protocol: str, tag_id: str, value: float, unit: str = ""):
+        msg = {"protocol": protocol, "tag_id": tag_id, "value": value, "unit": unit, "ts": time.time()}
         for q in list(self._subscribers):
             try:
                 q.put_nowait(msg)
@@ -124,5 +113,4 @@ class SimulatorState:
                 pass
 
 
-# Singleton global
 state = SimulatorState()
