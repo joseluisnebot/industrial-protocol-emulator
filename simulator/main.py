@@ -2,20 +2,11 @@
 # main.py — Orquestador asyncio: lanza todos los servidores de protocolo + UI web
 
 import asyncio
+import importlib
 import logging
 import signal
-import sys
 import uvicorn
 
-from simulator.protocols import (
-    modbus_server,
-    opcua_server,
-    mqtt_publisher,
-    bacnet_server,
-    dnp3_server,
-    ethernetip_server,
-    snmp_agent,
-)
 from simulator.web.app import app as web_app
 
 logging.basicConfig(
@@ -28,12 +19,25 @@ log = logging.getLogger("main")
 WEB_HOST = "0.0.0.0"
 WEB_PORT = 8080
 
+PROTOCOL_MODULES = [
+    ("modbus",      "simulator.protocols.modbus_server"),
+    ("opcua",       "simulator.protocols.opcua_server"),
+    ("mqtt",        "simulator.protocols.mqtt_publisher"),
+    ("bacnet",      "simulator.protocols.bacnet_server"),
+    ("dnp3",        "simulator.protocols.dnp3_server"),
+    ("ethernetip",  "simulator.protocols.ethernetip_server"),
+    ("snmp",        "simulator.protocols.snmp_agent"),
+]
 
-async def run_protocol(name: str, coro):
-    """Ejecuta un servidor de protocolo, capturando excepciones sin derribar el proceso."""
+
+async def run_protocol(name: str, module_path: str):
+    """Importa y ejecuta un servidor de protocolo, aislando excepciones."""
     try:
+        mod = importlib.import_module(module_path)
         log.info("Iniciando protocolo: %s", name)
-        await coro()
+        await mod.run()
+    except ImportError as exc:
+        log.warning("Protocolo %s: librería no disponible — %s", name, exc)
     except Exception as exc:
         log.error("Protocolo %s falló: %s", name, exc, exc_info=True)
 
@@ -56,16 +60,8 @@ async def main():
     log.info("  Industrial Protocol Emulator — mifsut.com")
     log.info("=" * 60)
 
-    tasks = [
-        asyncio.create_task(run_protocol("modbus",      modbus_server.run)),
-        asyncio.create_task(run_protocol("opcua",       opcua_server.run)),
-        asyncio.create_task(run_protocol("mqtt",        mqtt_publisher.run)),
-        asyncio.create_task(run_protocol("bacnet",      bacnet_server.run)),
-        asyncio.create_task(run_protocol("dnp3",        dnp3_server.run)),
-        asyncio.create_task(run_protocol("ethernetip",  ethernetip_server.run)),
-        asyncio.create_task(run_protocol("snmp",        snmp_agent.run)),
-        asyncio.create_task(run_web()),
-    ]
+    tasks = [asyncio.create_task(run_protocol(name, mod)) for name, mod in PROTOCOL_MODULES]
+    tasks.append(asyncio.create_task(run_web()))
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

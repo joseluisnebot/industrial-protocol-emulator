@@ -3,10 +3,6 @@
 
 import asyncio
 import logging
-from pysnmp.entity import engine, config
-from pysnmp.entity.rfc3413 import cmdrsp, context
-from pysnmp.carrier.asyncio.dgram import udp
-from pysnmp.proto import rfc1902
 from simulator.data_generator import get_signal
 from simulator.state import state, PROTOCOLS
 
@@ -14,7 +10,7 @@ log = logging.getLogger("snmp")
 PORT = 161
 UPDATE_INTERVAL = 2.0
 
-# OIDs del emulador
+# OIDs del emulador (enterprise: 1.3.6.1.4.1.9999)
 OIDS = {
     "cpu_load":    (1, 3, 6, 1, 4, 1, 9999, 1, 1, 0),
     "temperatura": (1, 3, 6, 1, 4, 1, 9999, 1, 2, 0),
@@ -26,23 +22,24 @@ async def run():
     log.info("Iniciando agente SNMP en puerto UDP %d", PORT)
     state.set_status("snmp", False)
     try:
+        # Lazy imports — pysnmp-lextudio o pysnmp clásico
+        from pysnmp.entity import engine, config
+        from pysnmp.entity.rfc3413 import cmdrsp, context
+        from pysnmp.carrier.asyncio.dgram import udp
+        from pysnmp.proto import rfc1902
+
         snmp_engine = engine.SnmpEngine()
 
-        # Configurar transporte UDP
         config.addTransport(
             snmp_engine,
             udp.domainName,
             udp.UdpTransport().openServerMode(("0.0.0.0", PORT)),
         )
-
-        # Community string: public (v1 + v2c)
         config.addV1System(snmp_engine, "read-area", "public")
 
-        # Contexto MIB
         snmp_context = context.SnmpContext(snmp_engine)
         mib_builder = snmp_context.getMibInstrum().getMibBuilder()
 
-        # Registrar objetos MIB
         MibScalarInstance, = mib_builder.importSymbols("SNMPv2-SMI", "MibScalarInstance")
         mib_objects = {}
         tags = PROTOCOLS["snmp"]
@@ -52,11 +49,8 @@ async def run():
                 obj = MibScalarInstance(oid[:-1], (oid[-1],), rfc1902.Gauge32(0))
                 mib_objects[tag["id"]] = obj
 
-        mib_builder.exportSymbols("__MY_MIB__", **{
-            k: v for k, v in mib_objects.items()
-        })
+        mib_builder.exportSymbols("__MY_MIB__", **{k: v for k, v in mib_objects.items()})
 
-        # Habilitar GET / WALK
         cmdrsp.GetCommandResponder(snmp_engine, snmp_context)
         cmdrsp.NextCommandResponder(snmp_engine, snmp_context)
         cmdrsp.BulkCommandResponder(snmp_engine, snmp_context)
@@ -64,7 +58,6 @@ async def run():
         state.set_status("snmp", True)
         log.info("SNMP agente listo en UDP 0.0.0.0:%d (community: public)", PORT)
 
-        # Actualizar valores continuamente
         while True:
             for tag in tags:
                 override = state.get_override("snmp", tag["id"])
@@ -77,8 +70,8 @@ async def run():
     except PermissionError:
         log.error("SNMP: permiso denegado en puerto %d — ejecutar como root o usar puerto >1024", PORT)
         state.set_status("snmp", False)
-    except ImportError:
-        log.warning("pysnmp no disponible — agente SNMP desactivado")
+    except ImportError as exc:
+        log.warning("pysnmp no disponible (%s) — agente SNMP desactivado", exc)
         state.set_status("snmp", False)
     except Exception as exc:
         state.set_status("snmp", False)
