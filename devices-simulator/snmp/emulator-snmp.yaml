@@ -1,0 +1,31 @@
+# © mifsut.com — industrial-protocol-emulator
+# Pega este archivo en devices/snmp/ de tu instalación SCADA
+
+device_id: emulator-snmp
+template: generic-snmp
+description: "Emulador SNMP — mifsut.com Industrial Protocol Emulator"
+
+connection:
+  host: 192.168.1.240
+  port: 161
+  community: public
+  version: 2c
+  timeout_ms: 5000
+
+poll_interval_ms: 5000
+
+oids:
+  - id: cpu_load
+    oid: 1.3.6.1.4.1.9999.1.1.0
+    label: "CPU Load"
+    unit: "%"
+
+  - id: temperatura
+    oid: 1.3.6.1.4.1.9999.1.2.0
+    label: "Temperatura"
+    unit: "°C"
+
+  - id: uptime
+    oid: 1.3.6.1.4.1.9999.1.3.0
+    label: "Uptime"
+    unit: s

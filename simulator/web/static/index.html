@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<!-- © mifsut.com — industrial-protocol-emulator / web UI -->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Industrial Protocol Emulator — mifsut.com</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3e;
+    --accent: #4f8ef7; --accent2: #7c3aed; --ok: #22c55e; --warn: #f59e0b; --err: #ef4444;
+    --text: #e2e8f0; --muted: #64748b;
+    --proto-colors: #4f8ef7,#7c3aed,#06b6d4,#f59e0b,#ef4444,#22c55e,#ec4899;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; }
+
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 14px 24px; display: flex; align-items: center; gap: 16px;
+  }
+  header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  header span { font-size: 12px; color: var(--muted); }
+  .logo { font-size: 11px; color: var(--muted); margin-left: auto; }
+  .logo b { color: var(--accent); }
+
+  .ws-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .ws-dot.ok { background: var(--ok); }
+
+  main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* Protocol grid */
+  .proto-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; margin-bottom: 24px; }
+
+  .proto-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  }
+  .proto-header {
+    padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .proto-name { font-weight: 600; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .proto-port { font-size: 11px; color: var(--muted); background: var(--bg); padding: 2px 8px; border-radius: 20px; }
+  .status-badge {
+    margin-left: auto; font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 500;
+  }
+  .status-badge.ok { background: rgba(34,197,94,0.15); color: var(--ok); }
+  .status-badge.err { background: rgba(239,68,68,0.15); color: var(--err); }
+  .status-badge.unknown { background: rgba(100,116,139,0.15); color: var(--muted); }
+
+  .proto-body { padding: 12px 16px; }
+
+  .tag-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tag-row:last-child { border-bottom: none; }
+  .tag-name { font-size: 12px; color: var(--muted); min-width: 130px; }
+  .tag-value {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 14px; font-weight: 600; min-width: 80px; text-align: right;
+  }
+  .tag-unit { font-size: 11px; color: var(--muted); min-width: 28px; }
+  .tag-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .tag-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.4s ease; }
+
+  .btn-override {
+    background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px;
+    padding: 3px 8px; font-size: 11px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-override:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-override.active { border-color: var(--warn); color: var(--warn); background: rgba(245,158,11,0.1); }
+
+  /* YAML panel */
+  .yaml-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 24px;
+  }
+  .yaml-panel h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .yaml-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .yaml-tab {
+    padding: 5px 14px; border-radius: 20px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--border); background: none; color: var(--muted); transition: all 0.2s;
+  }
+  .yaml-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .yaml-host-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+  .yaml-host-row label { font-size: 12px; color: var(--muted); }
+  .yaml-host-row input {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: 5px 10px; font-size: 13px; width: 180px;
+  }
+  .yaml-host-row button {
+    background: var(--accent); color: white; border: none; border-radius: 6px;
+    padding: 5px 14px; font-size: 12px; cursor: pointer;
+  }
+  .yaml-code {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    white-space: pre; overflow-x: auto; color: #a5d6a7; min-height: 120px; position: relative;
+  }
+  .copy-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--text); }
+
+  /* Override modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    z-index: 100; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 24px; width: 380px; max-width: 95vw;
+  }
+  .modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+  .field-group { margin-bottom: 14px; }
+  .field-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .field-group input, .field-group select {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px;
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+  .modal-actions button {
+    flex: 1; padding: 9px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none;
+  }
+  .btn-apply { background: var(--accent); color: white; }
+  .btn-reset { background: var(--border); color: var(--muted); }
+  .btn-cancel { background: none; border: 1px solid var(--border) !important; color: var(--muted); }
+
+  .stats-bar {
+    display: flex; gap: 20px; padding: 12px 20px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    font-size: 12px; color: var(--muted);
+  }
+  .stats-bar span b { color: var(--text); }
+
+  footer { text-align: center; padding: 20px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="ws-dot" id="wsDot"></div>
+  <h1>Industrial Protocol Emulator</h1>
+  <span id="wsStatus">Conectando...</span>
+  <span class="logo">by <b>mifsut.com</b></span>
+</header>
+
+<div class="stats-bar">
+  <span>Protocolos activos: <b id="statActive">0</b>/7</span>
+  <span>Tags emitiendo: <b id="statTags">0</b></span>
+  <span>Overrides activos: <b id="statOverrides">0</b></span>
+  <span>Última actualización: <b id="statTs">—</b></span>
+</div>
+
+<main>
+  <!-- Protocol cards -->
+  <div class="proto-grid" id="protoGrid"></div>
+
+  <!-- YAML generator -->
+  <div class="yaml-panel">
+    <h2>Generador de configuración SCADA (YAML)</h2>
+    <div class="yaml-tabs" id="yamlTabs"></div>
+    <div class="yaml-host-row">
+      <label>IP del emulador:</label>
+      <input type="text" id="yamlHost" value="192.168.1.240">
+      <button onclick="loadYaml()">Generar</button>
+    </div>
+    <div class="yaml-code" id="yamlCode">
+      <button class="copy-btn" onclick="copyYaml()">Copiar</button>
+      <span style="color:var(--muted)">Selecciona un protocolo arriba para ver el YAML de configuración.</span>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <a href="https://mifsut.com" target="_blank">mifsut.com</a> — Industrial Protocol Emulator v1.0.0
+  &nbsp;|&nbsp; Modbus:502 · OPC-UA:4840 · MQTT:1883 · BACnet:47808 · DNP3:20000 · EtherNet/IP:44818 · SNMP:161
+</footer>
+
+<!-- Override modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Override de señal</h3>
+    <div class="field-group">
+      <label>Patrón de señal</label>
+      <select id="modalPattern">
+        <option value="sine">Sinusoidal (sine)</option>
+        <option value="ramp">Rampa (ramp)</option>
+        <option value="random">Aleatorio (random)</option>
+        <option value="constant">Constante (constant)</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Valor mínimo</label>
+      <input type="number" id="modalMin" value="0">
+    </div>
+    <div class="field-group">
+      <label>Valor máximo</label>
+      <input type="number" id="modalMax" value="100">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-apply" onclick="applyOverride()">Aplicar</button>
+      <button class="btn-reset" onclick="resetOverride()">Reset auto</button>
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+const PROTO_COLORS = {
+  modbus: '#4f8ef7', opcua: '#7c3aed', mqtt: '#06b6d4',
+  bacnet: '#f59e0b', dnp3: '#ef4444', ethernetip: '#22c55e', snmp: '#ec4899'
+};
+const PROTO_PORTS = {
+  modbus: 'TCP:502', opcua: 'TCP:4840', mqtt: 'TCP:1883',
+  bacnet: 'UDP:47808', dnp3: 'TCP:20000', ethernetip: 'TCP:44818', snmp: 'UDP:161'
+};
+
+let state = {};       // {protocol: {tags: {id: {value, unit}}, status: bool}}
+let overrides = {};   // {protocol:tag_id: override_config}
+let protocols = {};   // PROTOCOLS dict from API
+let selectedYaml = null;
+let ws = null;
+let modalCtx = null;  // {protocol, tag_id}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connectWs() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => {
+    document.getElementById('wsDot').classList.add('ok');
+    document.getElementById('wsStatus').textContent = 'Conectado';
+  };
+
+  ws.onclose = () => {
+    document.getElementById('wsDot').classList.remove('ok');
+    document.getElementById('wsStatus').textContent = 'Reconectando...';
+    setTimeout(connectWs, 3000);
+  };
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'snapshot') {
+      handleSnapshot(msg.data);
+    } else if (msg.type === 'update') {
+      handleUpdate(msg.data);
+    } else if (msg.type === 'ping') {
+      document.getElementById('statTs').textContent = new Date(msg.ts * 1000).toLocaleTimeString();
+    }
+  };
+}
+
+function handleSnapshot(data) {
+  state = data;
+  fetchProtocols().then(renderAll);
+}
+
+function handleUpdate(data) {
+  // data: {protocol, tag_id, value, unit, ts}
+  if (!state[data.protocol]) return;
+  if (!state[data.protocol].tags) state[data.protocol].tags = {};
+  state[data.protocol].tags[data.tag_id] = { value: data.value, unit: data.unit };
+  document.getElementById('statTs').textContent = new Date(data.ts * 1000).toLocaleTimeString();
+  updateTagDisplay(data.protocol, data.tag_id, data.value);
+  updateStats();
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function fetchProtocols() {
+  const r = await fetch('/api/protocols');
+  protocols = await r.json();
+}
+
+async function loadYaml() {
+  if (!selectedYaml) return;
+  const host = document.getElementById('yamlHost').value.trim() || '192.168.1.240';
+  const r = await fetch(`/api/yaml/${selectedYaml}?host=${host}`);
+  const d = await r.json();
+  const el = document.getElementById('yamlCode');
+  el.innerHTML = `<button class="copy-btn" onclick="copyYaml()">Copiar</button>${escHtml(d.yaml)}`;
+}
+
+function copyYaml() {
+  const text = document.getElementById('yamlCode').innerText.replace('Copiar', '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '¡Copiado!';
+    setTimeout(() => btn.textContent = 'Copiar', 1500);
+  });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderProtoGrid();
+  renderYamlTabs();
+  updateStats();
+}
+
+function renderProtoGrid() {
+  const grid = document.getElementById('protoGrid');
+  grid.innerHTML = '';
+  for (const [proto, protoTags] of Object.entries(protocols)) {
+    const protoState = state[proto] || {};
+    const status = protoState.status;
+    const color = PROTO_COLORS[proto] || '#888';
+    const card = document.createElement('div');
+    card.className = 'proto-card';
+    card.id = `card-${proto}`;
+
+    const tagsHtml = protoTags.map(tag => {
+      const vs = protoState.tags?.[tag.id];
+      const val = vs?.value ?? 0;
+      const unit = tag.unit || '';
+      const pct = getBarPct(tag, val);
+      const ovKey = `${proto}:${tag.id}`;
+      const hasOv = ovKey in overrides;
+      return `
+      <div class="tag-row" id="row-${proto}-${tag.id}">
+        <span class="tag-name">${tag.label || tag.id}</span>
+        <span class="tag-value" id="val-${proto}-${tag.id}">${fmtVal(val, unit)}</span>
+        <span class="tag-unit">${unit}</span>
+        <div class="tag-bar"><div class="tag-bar-fill" id="bar-${proto}-${tag.id}" style="width:${pct}%;background:${color}"></div></div>
+        <button class="btn-override ${hasOv ? 'active' : ''}" id="ov-${proto}-${tag.id}"
+          onclick="openModal('${proto}','${tag.id}')">
+          ${hasOv ? '⚠ override' : 'override'}
+        </button>
+      </div>`;
+    }).join('');
+
+    card.innerHTML = `
+      <div class="proto-header" style="border-left:3px solid ${color}">
+        <span class="proto-name">${proto}</span>
+        <span class="proto-port">${PROTO_PORTS[proto] || ''}</span>
+        <span class="status-badge ${status === true ? 'ok' : status === false ? 'err' : 'unknown'}" id="status-${proto}">
+          ${status === true ? 'Online' : status === false ? 'Error' : '...'}
+        </span>
+      </div>
+      <div class="proto-body">${tagsHtml}</div>`;
+    grid.appendChild(card);
+  }
+}
+
+function renderYamlTabs() {
+  const tabs = document.getElementById('yamlTabs');
+  tabs.innerHTML = '';
+  for (const proto of Object.keys(protocols)) {
+    const btn = document.createElement('button');
+    btn.className = 'yaml-tab';
+    btn.textContent = proto.toUpperCase();
+    btn.onclick = () => {
+      document.querySelectorAll('.yaml-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      selectedYaml = proto;
+      loadYaml();
+    };
+    tabs.appendChild(btn);
+  }
+}
+
+function updateTagDisplay(protocol, tagId, value) {
+  const valEl = document.getElementById(`val-${protocol}-${tagId}`);
+  if (!valEl) return;
+  const proto = protocols[protocol];
+  const tag = proto?.find(t => t.id === tagId);
+  const unit = tag?.unit || '';
+  valEl.textContent = fmtVal(value, unit);
+
+  const barEl = document.getElementById(`bar-${protocol}-${tagId}`);
+  if (barEl && tag) {
+    barEl.style.width = getBarPct(tag, value) + '%';
+  }
+
+  // Flash animation
+  valEl.style.color = PROTO_COLORS[protocol] || '#4f8ef7';
+  setTimeout(() => valEl.style.color = '', 300);
+}
+
+function updateStats() {
+  let active = 0, tags = 0, ovs = 0;
+  for (const [proto, s] of Object.entries(state)) {
+    if (s.status === true) active++;
+    if (s.tags) tags += Object.keys(s.tags).length;
+  }
+  ovs = Object.keys(overrides).length;
+  document.getElementById('statActive').textContent = active;
+  document.getElementById('statTags').textContent = tags;
+  document.getElementById('statOverrides').textContent = ovs;
+}
+
+// ── Override modal ─────────────────────────────────────────────────────────────
+function openModal(protocol, tagId) {
+  modalCtx = { protocol, tagId };
+  const key = `${protocol}:${tagId}`;
+  const ov = overrides[key];
+  const proto = protocols[protocol];
+  const tag = proto?.find(t => t.id === tagId);
+
+  document.getElementById('modalTitle').textContent = `Override: ${protocol} / ${tagId}`;
+  document.getElementById('modalPattern').value = ov?.pattern || 'sine';
+  document.getElementById('modalMin').value = ov?.min ?? (tag?.min ?? 0);
+  document.getElementById('modalMax').value = ov?.max ?? (tag?.max ?? 100);
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  modalCtx = null;
+}
+
+async function applyOverride() {
+  if (!modalCtx) return;
+  const { protocol, tagId } = modalCtx;
+  const body = {
+    pattern: document.getElementById('modalPattern').value,
+    min: parseFloat(document.getElementById('modalMin').value),
+    max: parseFloat(document.getElementById('modalMax').value),
+  };
+  const r = await fetch(`/api/override/${protocol}/${tagId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  if (d.ok) {
+    overrides[`${protocol}:${tagId}`] = body;
+    markOverrideBtn(protocol, tagId, true);
+    updateStats();
+  } else {
+    alert(d.error);
+  }
+  closeModal();
+}
+
+async function resetOverride() {
+  if (!modalCtx) return;
+  const { protocol, tagId } = modalCtx;
+  await fetch(`/api/override/${protocol}/${tagId}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+  });
+  delete overrides[`${protocol}:${tagId}`];
+  markOverrideBtn(protocol, tagId, false);
+  updateStats();
+  closeModal();
+}
+
+function markOverrideBtn(protocol, tagId, active) {
+  const btn = document.getElementById(`ov-${protocol}-${tagId}`);
+  if (!btn) return;
+  if (active) {
+    btn.classList.add('active');
+    btn.textContent = '⚠ override';
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = 'override';
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtVal(v, unit) {
+  if (unit === 'bool') return v >= 0.5 ? 'TRUE' : 'FALSE';
+  if (Math.abs(v) >= 1000) return v.toFixed(0);
+  if (Math.abs(v) >= 100) return v.toFixed(1);
+  return v.toFixed(2);
+}
+
+function getBarPct(tag, val) {
+  const min = tag.min ?? 0;
+  const max = tag.max ?? 100;
+  if (max === min) return 50;
+  return Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// Init
+connectWs();
+</script>
+</body>
+</html>

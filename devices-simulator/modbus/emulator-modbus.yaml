@@ -1,0 +1,53 @@
+# © mifsut.com — industrial-protocol-emulator
+# Pega este archivo en devices/modbus/ de tu instalación SCADA
+# Nombre sugerido: emulator-modbus.yaml
+
+device_id: emulator-modbus
+template: generic-modbus
+description: "Emulador Modbus TCP — mifsut.com Industrial Protocol Emulator"
+
+connection:
+  host: 192.168.1.240
+  port: 502
+  unit_id: 1
+  timeout_ms: 3000
+
+poll_interval_ms: 1000
+
+tags:
+  - id: motor_speed
+    address: 0         # Holding Register 40001 (float32 → 2 registros)
+    type: float32
+    label: "Velocidad Motor"
+    unit: Hz
+    scale: 1.0
+
+  - id: motor_current
+    address: 2         # Holding Register 40003
+    type: float32
+    label: "Corriente Motor"
+    unit: A
+
+  - id: temperatura
+    address: 4         # Holding Register 40005
+    type: float32
+    label: "Temperatura"
+    unit: "°C"
+
+  - id: presion
+    address: 6         # Holding Register 40007
+    type: float32
+    label: "Presión"
+    unit: bar
+
+  - id: voltaje
+    address: 8         # Holding Register 40009
+    type: float32
+    label: "Voltaje"
+    unit: V
+
+  - id: energia
+    address: 10        # Holding Register 40011
+    type: float32
+    label: "Energía"
+    unit: kWh

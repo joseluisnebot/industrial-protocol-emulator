@@ -1,0 +1,38 @@
+# © mifsut.com — industrial-protocol-emulator
+# docker-compose.yml — Stack completo: emulador + Mosquitto MQTT broker
+
+version: "3.9"
+
+services:
+  emulator:
+    build: .
+    container_name: ipe-emulator
+    restart: unless-stopped
+    network_mode: host          # necesario para SNMP UDP:161 y BACnet UDP:47808
+    cap_add:
+      - NET_BIND_SERVICE        # permite puertos <1024 sin root completo
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MQTT_HOST=localhost
+      - MQTT_PORT=1883
+    depends_on:
+      - mosquitto
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: ipe-mosquitto
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:

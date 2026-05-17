@@ -1,0 +1,28 @@
+# © mifsut.com — industrial-protocol-emulator
+# Python 3.11+
+
+# Web framework
+fastapi==0.111.1
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+
+# Modbus TCP
+pymodbus==3.6.9
+
+# OPC-UA
+asyncua==1.1.0
+
+# MQTT
+paho-mqtt==2.1.0
+
+# BACnet/IP
+bacpypes3==0.0.95
+
+# SNMP
+pysnmp==6.2.5
+
+# EtherNet/IP (opcional — fallback manual si no instala)
+# cpppo==4.3.4
+
+# Utilidades
+aiofiles==23.2.1

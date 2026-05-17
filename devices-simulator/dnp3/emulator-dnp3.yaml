@@ -1,0 +1,45 @@
+# © mifsut.com — industrial-protocol-emulator
+# Pega este archivo en devices/dnp3/ de tu instalación SCADA
+
+device_id: emulator-dnp3
+template: generic-dnp3
+description: "Emulador DNP3 — mifsut.com Industrial Protocol Emulator"
+
+connection:
+  host: 192.168.1.240
+  port: 20000
+  master_address: 1        # Dirección del master (SCADA)
+  outstation_address: 4    # Dirección de la outstation (emulador)
+  timeout_ms: 5000
+
+poll_interval_ms: 2000
+poll_type: integrity        # Class 0 Integrity Poll
+
+tags:
+  - id: motor_speed
+    group: 30              # Analog Input
+    variation: 5           # Float32
+    index: 0
+    label: "Velocidad Motor"
+    unit: Hz
+
+  - id: motor_current
+    group: 30
+    variation: 5
+    index: 1
+    label: "Corriente Motor"
+    unit: A
+
+  - id: temperatura
+    group: 30
+    variation: 5
+    index: 2
+    label: "Temperatura"
+    unit: "°C"
+
+  - id: pump_running
+    group: 1               # Binary Input
+    variation: 2           # With flags
+    index: 0
+    label: "Bomba en marcha"
+    unit: bool

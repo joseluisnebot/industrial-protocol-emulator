@@ -1,0 +1,32 @@
+# © mifsut.com — industrial-protocol-emulator
+# Pega este archivo en devices/bacnet/ de tu instalación SCADA
+
+device_id: emulator-bacnet
+template: generic-bacnet
+description: "Emulador BACnet/IP — mifsut.com Industrial Protocol Emulator"
+
+connection:
+  host: 192.168.1.240
+  port: 47808              # UDP
+  device_id: 999           # BACnet Device Instance
+
+poll_interval_ms: 2000
+
+objects:
+  - id: temperatura
+    object_type: analogInput
+    instance: 1
+    label: "Temperatura"
+    unit: degreesCelsius
+
+  - id: presion
+    object_type: analogInput
+    instance: 2
+    label: "Presión"
+    unit: kilopascals
+
+  - id: caudal
+    object_type: analogInput
+    instance: 3
+    label: "Caudal"
+    unit: litersPerSecond

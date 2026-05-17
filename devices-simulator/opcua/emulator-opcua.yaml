@@ -1,0 +1,29 @@
+# © mifsut.com — industrial-protocol-emulator
+# Pega este archivo en devices/opcua/ de tu instalación SCADA
+
+device_id: emulator-opcua
+template: generic-opcua
+description: "Emulador OPC-UA — mifsut.com Industrial Protocol Emulator"
+
+connection:
+  url: opc.tcp://192.168.1.240:4840
+  namespace: https://mifsut.com/emulator
+  timeout_ms: 5000
+
+poll_interval_ms: 2000
+
+tags:
+  - id: motor_speed
+    node: "ns=1;s=Motor/Speed"
+    label: "Velocidad Motor"
+    unit: Hz
+
+  - id: motor_current
+    node: "ns=1;s=Motor/Current"
+    label: "Corriente Motor"
+    unit: A
+
+  - id: temperatura
+    node: "ns=1;s=Temp/Ambient"
+    label: "Temperatura Ambiente"
+    unit: "°C"

@@ -1,0 +1,32 @@
+# © mifsut.com — industrial-protocol-emulator
+# Pega este archivo en devices/ethernet_ip/ de tu instalación SCADA
+
+device_id: emulator-eip
+template: allen-bradley-compactlogix
+description: "Emulador EtherNet/IP CIP — mifsut.com Industrial Protocol Emulator"
+
+connection:
+  host: 192.168.1.240
+  port: 44818
+  timeout_ms: 3000
+
+poll_interval_ms: 1000
+
+tags:
+  - id: motor_speed
+    tag_name: Motor_Speed
+    type: REAL
+    label: "Velocidad Motor"
+    unit: Hz
+
+  - id: motor_current
+    tag_name: Motor_Current
+    type: REAL
+    label: "Corriente Motor"
+    unit: A
+
+  - id: conveyor_running
+    tag_name: Conveyor_Running
+    type: BOOL
+    label: "Cinta en marcha"
+    unit: bool

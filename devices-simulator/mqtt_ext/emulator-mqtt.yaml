@@ -1,0 +1,30 @@
+# © mifsut.com — industrial-protocol-emulator
+# Pega este archivo en devices/mqtt_ext/ de tu instalación SCADA
+
+device_id: emulator-mqtt
+template: generic-mqtt-device
+description: "Emulador MQTT — mifsut.com Industrial Protocol Emulator"
+
+connection:
+  host: 192.168.1.240
+  port: 1883
+  client_id: scada-subscriber
+  keepalive: 60
+
+poll_interval_ms: 1000
+
+subscriptions:
+  - topic: planta/sensor1/temperatura
+    id: temperatura
+    label: "Temperatura Sensor 1"
+    unit: "°C"
+
+  - topic: planta/sensor1/humedad
+    id: humedad
+    label: "Humedad Sensor 1"
+    unit: "%"
+
+  - topic: planta/contador/energia
+    id: energia
+    label: "Energía Contador"
+    unit: kWh
