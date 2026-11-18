@@ -2,6 +2,7 @@
 # mqtt_publisher.py — Broker Mosquitto + Publisher MQTT en puerto 1883
 
 import asyncio
+import os
 import json
 import logging
 import time
@@ -10,8 +11,8 @@ from simulator.data_generator import get_signal
 from simulator.state import state, PROTOCOLS
 
 log = logging.getLogger("mqtt")
-BROKER_HOST = "localhost"
-BROKER_PORT = 1883
+BROKER_HOST = os.environ.get("MQTT_HOST", "localhost")
+BROKER_PORT = int(os.environ.get("MQTT_PORT", "1883"))
 UPDATE_INTERVAL = 1.0
 
 

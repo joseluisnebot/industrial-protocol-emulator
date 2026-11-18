@@ -2,7 +2,7 @@
 
 **by [mifsut.com](https://mifsut.com)**
 
-A fully-featured industrial protocol emulator that runs on a single Proxmox LXC and exposes seven simultaneous protocols with realistic, continuously-varying signal data. Built for SCADA integration testing, driver development, and training.
+An industrial protocol emulator that runs in one container and exposes seven simultaneous protocols with realistic, continuously-varying signal data. Built for SCADA integration testing, driver development, and training.
 
 ---
 
@@ -21,36 +21,30 @@ A fully-featured industrial protocol emulator that runs on a single Proxmox LXC 
 
 ---
 
-## Proxmox LXC target
-
-| | |
-|---|---|
-| **VMID** | 110 |
-| **Hostname** | ipe-emulator |
-| **IP** | 192.168.1.240 |
-| **OS** | Ubuntu 22.04 LTS |
-| **RAM** | 2 GB |
-| **CPU** | 2 cores |
-| **Disk** | 20 GB |
-
----
-
-## Quick deploy (from Proxmox host or any machine with SSH access)
+## Quick start
 
 ```bash
 git clone https://github.com/joseluisnebot/industrial-protocol-emulator
 cd industrial-protocol-emulator
-bash deploy-simulator.sh
+docker compose up -d
 ```
 
-The script will:
-1. Check LXC reachability (auto-start via Proxmox SSH if down)
-2. rsync project files to `/opt/industrial-protocol-emulator`
-3. Install Python dependencies
-4. Create and enable a `systemd` service (`ipe.service`)
-5. Build and launch Docker Compose (emulator + Mosquitto)
+Open the panel at **http://localhost:8080**. The compose file starts the emulator and a Mosquitto broker (host networking, needed for SNMP/BACnet UDP).
 
-Panel web available at: **http://192.168.1.240:8080**
+A prebuilt image is published to `ghcr.io/joseluisnebot/industrial-protocol-emulator:latest` (built by GitHub Actions on every push to `main`). It needs an MQTT broker; point it with `MQTT_HOST` / `MQTT_PORT`:
+
+```bash
+docker run --rm --network host --cap-add NET_BIND_SERVICE \
+  -e MQTT_HOST=localhost ghcr.io/joseluisnebot/industrial-protocol-emulator:latest
+```
+
+## Honest limitations
+
+- **DNP3** is a minimal stub: it answers Class 0 / integrity polls for analog inputs only (Group 30 Var 5).
+- **EtherNet/IP** is a basic server (via `cpppo`, with a minimal fallback). Check it against your driver before relying on it.
+- **SNMP** supports v1 and v2c only, community `public`. No SNMPv3.
+- No authentication or TLS on any protocol or on the web panel. **Run it in a lab network, never exposed to the internet.**
+- Signals are synthetic (sine, ramp, random walk, constant). It does not model a real process.
 
 ---
 
@@ -104,10 +98,10 @@ industrial-protocol-emulator/
 │   ├── ethernet_ip/emulator-eip.yaml
 │   └── snmp/emulator-snmp.yaml
 ├── requirements.txt
+├── LICENSE
 ├── Dockerfile
 ├── docker-compose.yml
 ├── mosquitto.conf
-├── deploy-simulator.sh
 └── README.md
 ```
 
@@ -129,15 +123,18 @@ WS   /ws                                 # real-time updates
 ## Manual start (without Docker)
 
 ```bash
-cd /opt/industrial-protocol-emulator
 pip install -r requirements.txt
-python -m simulator.main
+MQTT_HOST=localhost python -m simulator.main
 ```
 
-> SNMP requires port 161 (UDP). Either run as root or set `CAP_NET_BIND_SERVICE`.
+> SNMP uses UDP port 161. Run as root or set `CAP_NET_BIND_SERVICE`.
 
 ---
 
+## Part of a bigger story
+
+Many small makers of connected industrial equipment will need to comply with the EU Cyber Resilience Act. Test your drivers here, then check where your product stands with the free classifier at [mifsut.com/cra](https://mifsut.com/cra).
+
 ## License
 
-MIT — © mifsut.com
+MIT, see [LICENSE](LICENSE). © mifsut.com
