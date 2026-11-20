@@ -32,7 +32,7 @@ def _build_oids() -> dict[str, tuple]:
             try:
                 result[tag["id"]] = tuple(int(x) for x in oid_str.strip().split("."))
             except ValueError:
-                log.warning("SNMP: OID inválido para %s: %s", tag["id"], oid_str)
+                log.warning("SNMP: invalid OID for %s: %s", tag["id"], oid_str)
     return result
 
 
@@ -85,7 +85,7 @@ def _enc_integer32_x100(n: float) -> bytes:
     return _enc_integer32(round(n * 100))
 
 def _enc_value(tag_id: str, val: float) -> bytes:
-    """Selecciona el encoder correcto según el tipo configurado en el tag."""
+    """Select the right encoder for the tag's configured type."""
     tag = _get_tag(tag_id)
     snmp_type = tag.get("snmp_type", "gauge32")
     if snmp_type == "integer32_x100":
@@ -226,7 +226,7 @@ class _SNMPServer(asyncio.DatagramProtocol):
         if response:
             self._transport.sendto(response, addr)
         else:
-            log.debug("SNMP: ignorando paquete de %s", addr)
+            log.debug("SNMP: ignoring packet from %s", addr)
 
 
 # ── value updater ─────────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ async def run():
     global _start_time
     _start_time = time.time()
 
-    log.info("Iniciando agente SNMP en puerto UDP %d", PORT)
+    log.info("Starting SNMP agent on UDP port %d", PORT)
     state.set_status("snmp", False)
     try:
         loop = asyncio.get_running_loop()
@@ -263,7 +263,7 @@ async def run():
             local_addr=("0.0.0.0", PORT),
         )
         state.set_status("snmp", True)
-        log.info("SNMP listo en UDP 0.0.0.0:%d (v1+v2c, community: public)", PORT)
+        log.info("SNMP ready on UDP 0.0.0.0:%d (v1+v2c, community: public)", PORT)
         log.info("SNMP tipos: cpu_load=Gauge32, temperatura=Integer32×100, uptime=Counter32")
         asyncio.create_task(_value_updater())
         try:
@@ -272,11 +272,11 @@ async def run():
             transport.close()
 
     except PermissionError:
-        log.error("SNMP: permiso denegado en puerto %d", PORT)
+        log.error("SNMP: permission denied on port %d", PORT)
         state.set_status("snmp", False)
     except OSError as exc:
-        log.error("SNMP: no se pudo abrir UDP %d: %s", PORT, exc)
+        log.error("SNMP: could not open UDP %d: %s", PORT, exc)
         state.set_status("snmp", False)
     except Exception as exc:
         state.set_status("snmp", False)
-        log.error("Error en agente SNMP: %s", exc)
+        log.error("SNMP agent error: %s", exc)

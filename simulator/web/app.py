@@ -69,12 +69,12 @@ async def update_protocol_tags(protocol: str, request: Request):
     Body: lista de tags con sus campos actualizados.
     """
     if protocol not in PROTOCOLS:
-        return JSONResponse({"error": f"Protocolo desconocido: {protocol}"}, status_code=404)
+        return JSONResponse({"error": f"Unknown protocol: {protocol}"}, status_code=404)
 
     try:
         new_tags = await request.json()
     except Exception:
-        return JSONResponse({"error": "JSON inválido"}, status_code=400)
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
     if not isinstance(new_tags, list) or not new_tags:
         return JSONResponse({"error": "Se esperaba una lista de tags"}, status_code=400)
@@ -97,7 +97,7 @@ async def update_protocol_tags(protocol: str, request: Request):
     if start_fn:
         asyncio.create_task(start_fn(protocol))
 
-    log.info("Tags de %s actualizados (%d tags) — reiniciando", protocol, len(new_tags))
+    log.info("Tags for %s updated (%d tags) — restarting", protocol, len(new_tags))
     return {"ok": True, "protocol": protocol, "tags": len(new_tags)}
 
 
@@ -105,22 +105,22 @@ async def update_protocol_tags(protocol: str, request: Request):
 async def restart_protocol(protocol: str):
     """Reinicia un servidor de protocolo sin cambiar su config."""
     if protocol not in PROTOCOLS:
-        return JSONResponse({"error": f"Protocolo desconocido: {protocol}"}, status_code=404)
+        return JSONResponse({"error": f"Unknown protocol: {protocol}"}, status_code=404)
 
     start_fn = getattr(app.state, "start_protocol", None)
     if start_fn:
         asyncio.create_task(start_fn(protocol))
         return {"ok": True, "restarting": protocol}
-    return JSONResponse({"error": "Restart no disponible (inicio directo?)"}, status_code=503)
+    return JSONResponse({"error": "Restart not available (direct start?)"}, status_code=503)
 
 
 # ── REST API — YAML config ────────────────────────────────────────────────────
 
 @app.get("/api/yaml/{protocol}")
-async def get_yaml_config(protocol: str, host: str = "192.168.1.240"):
+async def get_yaml_config(protocol: str, host: str = "localhost"):
     tags = PROTOCOLS.get(protocol, [])
     configs = {
-        "modbus": lambda: f"""# Pega en devices/modbus/ de tu SCADA
+        "modbus": lambda: f"""# Paste into devices/modbus/ of your SCADA
 device_id: emulator-modbus
 template: generic-modbus
 connection:
@@ -133,7 +133,7 @@ tags:
     f"  - id: {t['id']}\n    label: \"{t.get('label', t['id'])}\"\n    address: {t.get('address', 0)}\n    type: {t.get('type','float32')}\n    unit: {t.get('unit','')}\n"
     for t in tags
 ),
-        "opcua": lambda: f"""# Pega en devices/opcua/ de tu SCADA
+        "opcua": lambda: f"""# Paste into devices/opcua/ of your SCADA
 device_id: emulator-opcua
 connection:
   url: opc.tcp://{host}:4840
@@ -144,7 +144,7 @@ tags:
     f"  - id: {t['id']}\n    label: \"{t.get('label', t['id'])}\"\n    node: \"{t.get('node_id','')}\"\n    unit: {t.get('unit','')}\n"
     for t in tags
 ),
-        "mqtt": lambda: f"""# Pega en devices/mqtt_ext/ de tu SCADA
+        "mqtt": lambda: f"""# Paste into devices/mqtt_ext/ of your SCADA
 device_id: emulator-mqtt
 connection:
   host: {host}
@@ -154,7 +154,7 @@ subscriptions:
     f"  - id: {t['id']}\n    label: \"{t.get('label', t['id'])}\"\n    topic: {t.get('topic','')}\n    unit: {t.get('unit','')}\n"
     for t in tags
 ),
-        "bacnet": lambda: f"""# Pega en devices/bacnet/ de tu SCADA
+        "bacnet": lambda: f"""# Paste into devices/bacnet/ of your SCADA
 device_id: emulator-bacnet
 connection:
   host: {host}
@@ -165,7 +165,7 @@ objects:
     f"  - id: {t['id']}\n    label: \"{t.get('label', t['id'])}\"\n    object_type: analogInput\n    instance: {t.get('instance',0)}\n    unit: {t.get('unit','')}\n"
     for t in tags
 ),
-        "dnp3": lambda: f"""# Pega en devices/dnp3/ de tu SCADA
+        "dnp3": lambda: f"""# Paste into devices/dnp3/ of your SCADA
 device_id: emulator-dnp3
 connection:
   host: {host}
@@ -175,7 +175,7 @@ tags:
     f"  - id: {t['id']}\n    label: \"{t.get('label', t['id'])}\"\n    group: {t.get('group',30)}\n    index: {t.get('index',0)}\n    unit: {t.get('unit','')}\n"
     for t in tags
 ),
-        "ethernetip": lambda: f"""# Pega en devices/ethernet_ip/ de tu SCADA
+        "ethernetip": lambda: f"""# Paste into devices/ethernet_ip/ of your SCADA
 device_id: emulator-eip
 connection:
   host: {host}
@@ -185,7 +185,7 @@ tags:
     f"  - id: {t['id']}\n    label: \"{t.get('label', t['id'])}\"\n    tag_name: {t.get('tag_name', t['id'])}\n    type: {t.get('type','REAL')}\n"
     for t in tags
 ),
-        "snmp": lambda: f"""# Pega en devices/snmp/ de tu SCADA
+        "snmp": lambda: f"""# Paste into devices/snmp/ of your SCADA
 device_id: emulator-snmp
 connection:
   host: {host}
@@ -200,7 +200,7 @@ oids:
     }
 
     if protocol not in configs:
-        return JSONResponse({"error": f"Protocolo desconocido: {protocol}"}, status_code=404)
+        return JSONResponse({"error": f"Unknown protocol: {protocol}"}, status_code=404)
 
     return JSONResponse({"yaml": configs[protocol](), "protocol": protocol, "host": host})
 
@@ -211,7 +211,7 @@ oids:
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     queue = state.subscribe()
-    log.info("WebSocket cliente conectado")
+    log.info("WebSocket client connected")
     try:
         await ws.send_json({"type": "snapshot", "data": state.snapshot()})
         while True:
@@ -221,7 +221,7 @@ async def websocket_endpoint(ws: WebSocket):
             except asyncio.TimeoutError:
                 await ws.send_json({"type": "ping", "ts": time.time()})
     except WebSocketDisconnect:
-        log.info("WebSocket cliente desconectado")
+        log.info("WebSocket client disconnected")
     except Exception as exc:
         log.error("WebSocket error: %s", exc)
     finally:

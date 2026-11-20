@@ -2,34 +2,28 @@
 FROM python:3.11-slim
 
 LABEL maintainer="mifsut.com"
-LABEL description="Industrial Protocol Emulator — Modbus, OPC-UA, MQTT, BACnet, DNP3, EtherNet/IP, SNMP"
+LABEL org.opencontainers.image.source="https://github.com/joseluisnebot/industrial-protocol-emulator"
+LABEL org.opencontainers.image.description="Industrial Protocol Emulator - Modbus, OPC-UA, MQTT, BACnet, DNP3, EtherNet/IP, SNMP"
+LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
 
-# Dependencias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libsnmp-dev \
+    mosquitto \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY mosquitto.conf /etc/mosquitto/ipe.conf
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY simulator/ ./simulator/
 
-# Puertos expuestos
-# 502   Modbus TCP
-# 4840  OPC-UA
-# 1883  MQTT (broker externo — el contenedor no lo expone)
-# 47808 BACnet/IP UDP
-# 20000 DNP3 TCP
-# 44818 EtherNet/IP TCP
-# 161   SNMP UDP
-# 8080  Panel web
+# 502 Modbus TCP | 4840 OPC-UA | 1883 MQTT (embedded broker) | 47808/udp BACnet/IP
+# 20000 DNP3 | 44818 EtherNet/IP | 161/udp SNMP | 8080 web panel
+EXPOSE 502 4840 1883 47808/udp 20000 44818 161/udp 8080
 
-EXPOSE 502 4840 47808/udp 20000 44818 8080
-
-# SNMP necesita UDP 161 — requiere privilegios o capabilities
-# En Docker: usar --cap-add=NET_BIND_SERVICE o mapear a puerto >1024
-
-CMD ["python", "-m", "simulator.main"]
+# Set MQTT_HOST/MQTT_PORT to use an external broker instead of the embedded one.
+ENTRYPOINT ["docker-entrypoint.sh"]

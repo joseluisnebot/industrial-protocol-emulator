@@ -17,7 +17,7 @@ UPDATE_INTERVAL = 1.0
 
 
 async def run():
-    log.info("Iniciando publisher MQTT → %s:%d", BROKER_HOST, BROKER_PORT)
+    log.info("Starting MQTT publisher → %s:%d", BROKER_HOST, BROKER_PORT)
     state.set_status("mqtt", False)
 
     loop = asyncio.get_event_loop()
@@ -28,14 +28,14 @@ async def run():
 
     def on_connect(c, userdata, flags, rc, props=None):
         if rc == 0:
-            log.info("MQTT conectado al broker %s:%d", BROKER_HOST, BROKER_PORT)
+            log.info("MQTT connected to broker %s:%d", BROKER_HOST, BROKER_PORT)
             state.set_status("mqtt", True)
             loop.call_soon_threadsafe(connected.set)
         else:
-            log.error("MQTT error de conexión: rc=%d", rc)
+            log.error("MQTT connection error: rc=%d", rc)
 
     def on_disconnect(c, userdata, rc, props=None):
-        log.warning("MQTT desconectado rc=%d", rc)
+        log.warning("MQTT disconnected rc=%d", rc)
         state.set_status("mqtt", False)
 
     client.on_connect = on_connect
@@ -48,7 +48,7 @@ async def run():
                 client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
                 break
             except Exception:
-                log.warning("MQTT broker no disponible, reintento %d/10...", attempt + 1)
+                log.warning("MQTT broker not available, retry %d/10...", attempt + 1)
                 await asyncio.sleep(3)
 
         client.loop_start()
@@ -66,11 +66,11 @@ async def run():
             await asyncio.sleep(UPDATE_INTERVAL)
 
     except asyncio.TimeoutError:
-        log.error("MQTT: timeout esperando conexión al broker")
+        log.error("MQTT: timed out waiting for broker connection")
         state.set_status("mqtt", False)
     except Exception as exc:
         state.set_status("mqtt", False)
-        log.error("Error en publisher MQTT: %s", exc)
+        log.error("MQTT publisher error: %s", exc)
     finally:
         client.loop_stop()
         client.disconnect()

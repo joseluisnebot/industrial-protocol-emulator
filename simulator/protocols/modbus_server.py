@@ -39,7 +39,7 @@ async def _updater(context: ModbusServerContext):
 
 
 async def run():
-    log.info("Iniciando servidor Modbus TCP en puerto %d", PORT)
+    log.info("Starting Modbus TCP server on port %d", PORT)
     state.set_status("modbus", False)
     try:
         store = ModbusSlaveContext(
@@ -59,7 +59,7 @@ async def run():
         )
 
         state.set_status("modbus", True)
-        log.info("Modbus TCP listo en 0.0.0.0:%d", PORT)
+        log.info("Modbus TCP ready on 0.0.0.0:%d", PORT)
 
         # Lanzar el updater en paralelo
         asyncio.create_task(_updater(context))
@@ -67,4 +67,4 @@ async def run():
         await StartAsyncTcpServer(context=context, identity=identity, address=("0.0.0.0", PORT))
     except Exception as exc:
         state.set_status("modbus", False)
-        log.error("Error en servidor Modbus: %s", exc)
+        log.error("Modbus server error: %s", exc)

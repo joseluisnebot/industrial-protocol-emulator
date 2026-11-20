@@ -38,14 +38,14 @@ async def _run_protocol(name: str, module_path: str):
         mod = importlib.import_module(module_path)
         # Forzar recarga del módulo para que lea la nueva config
         importlib.reload(mod)
-        log.info("Iniciando protocolo: %s", name)
+        log.info("Starting protocol: %s", name)
         await mod.run()
     except ImportError as exc:
-        log.warning("Protocolo %s: librería no disponible — %s", name, exc)
+        log.warning("Protocol %s: library not available — %s", name, exc)
     except asyncio.CancelledError:
-        log.info("Protocolo %s detenido.", name)
+        log.info("Protocol %s stopped.", name)
     except Exception as exc:
-        log.error("Protocolo %s falló: %s", name, exc, exc_info=True)
+        log.error("Protocol %s failed: %s", name, exc, exc_info=True)
 
 
 async def start_protocol(name: str):
@@ -59,7 +59,7 @@ async def start_protocol(name: str):
 
     module_path = PROTOCOL_MODULES.get(name)
     if not module_path:
-        log.error("Protocolo desconocido: %s", name)
+        log.error("Unknown protocol: %s", name)
         return
 
     task = asyncio.create_task(_run_protocol(name, module_path), name=f"proto-{name}")
@@ -76,7 +76,7 @@ async def run_web():
         access_log=False,
     )
     server = uvicorn.Server(config)
-    log.info("Panel web en http://%s:%d", WEB_HOST, WEB_PORT)
+    log.info("Web panel at http://%s:%d", WEB_HOST, WEB_PORT)
     await server.serve()
 
 
@@ -104,13 +104,13 @@ async def main():
         loop.add_signal_handler(sig, _shutdown)
 
     await stop_event.wait()
-    log.info("Deteniendo emulador...")
+    log.info("Stopping emulator...")
 
     web_task.cancel()
     for task in protocol_tasks.values():
         task.cancel()
     await asyncio.gather(*protocol_tasks.values(), web_task, return_exceptions=True)
-    log.info("Emulador detenido.")
+    log.info("Emulator stopped.")
 
 
 if __name__ == "__main__":

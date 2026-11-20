@@ -74,7 +74,7 @@ def _build_analog_input_response(values: list[float], seq: int) -> bytes:
 
 async def _handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     addr = writer.get_extra_info('peername')
-    log.info("DNP3: cliente conectado desde %s", addr)
+    log.info("DNP3: client connected from %s", addr)
     seq = 0
     try:
         while True:
@@ -105,15 +105,15 @@ async def _handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWri
             writer.write(response)
             await writer.drain()
             seq = (seq + 1) & 0x0F
-            log.debug("DNP3: respondido integrity poll con %d AI values", len(analog_vals))
+            log.debug("DNP3: answered integrity poll with %d AI values", len(analog_vals))
 
     except (ConnectionResetError, BrokenPipeError):
         pass
     except Exception as exc:
-        log.error("DNP3 error cliente: %s", exc)
+        log.error("DNP3 client error: %s", exc)
     finally:
         writer.close()
-        log.info("DNP3: cliente desconectado %s", addr)
+        log.info("DNP3: client disconnected %s", addr)
 
 
 async def _value_updater():
@@ -131,15 +131,15 @@ async def _value_updater():
 
 
 async def run():
-    log.info("Iniciando servidor DNP3 stub TCP en puerto %d", PORT)
+    log.info("Starting DNP3 stub TCP server on port %d", PORT)
     state.set_status("dnp3", False)
     try:
         server = await asyncio.start_server(_handle_client, "0.0.0.0", PORT)
         state.set_status("dnp3", True)
-        log.info("DNP3 stub listo en 0.0.0.0:%d", PORT)
+        log.info("DNP3 stub ready on 0.0.0.0:%d", PORT)
         asyncio.create_task(_value_updater())
         async with server:
             await server.serve_forever()
     except Exception as exc:
         state.set_status("dnp3", False)
-        log.error("Error en servidor DNP3: %s", exc)
+        log.error("DNP3 server error: %s", exc)

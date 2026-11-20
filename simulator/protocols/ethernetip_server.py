@@ -15,7 +15,7 @@ UPDATE_INTERVAL = 1.0
 
 
 async def run():
-    log.info("Iniciando servidor EtherNet/IP en puerto %d", PORT)
+    log.info("Starting EtherNet/IP server on port %d", PORT)
     state.set_status("ethernetip", False)
     try:
         import cpppo
@@ -35,7 +35,7 @@ async def run():
                 cpppo_tags[tag["tag_name"]] = cpppo.server.enip.REAL
 
         state.set_status("ethernetip", True)
-        log.info("EtherNet/IP listo en 0.0.0.0:%d", PORT)
+        log.info("EtherNet/IP ready on 0.0.0.0:%d", PORT)
 
         # Actualizar valores
         while True:
@@ -51,11 +51,11 @@ async def run():
 
     except ImportError:
         # cpppo no disponible: servidor TCP mínimo que responde a CIP Read Tag Service
-        log.warning("cpppo no disponible — usando servidor CIP mínimo")
+        log.warning("cpppo not available — using minimal CIP server")
         await _run_minimal_cip()
     except Exception as exc:
         state.set_status("ethernetip", False)
-        log.error("Error en servidor EtherNet/IP: %s", exc)
+        log.error("EtherNet/IP server error: %s", exc)
 
 
 async def _run_minimal_cip():
@@ -67,14 +67,14 @@ async def _run_minimal_cip():
     try:
         server = await asyncio.start_server(_cip_handler, "0.0.0.0", PORT)
         state.set_status("ethernetip", True)
-        log.info("EtherNet/IP CIP mínimo listo en 0.0.0.0:%d", PORT)
+        log.info("EtherNet/IP minimal CIP ready on 0.0.0.0:%d", PORT)
 
         asyncio.create_task(_value_updater())
         async with server:
             await server.serve_forever()
     except Exception as exc:
         state.set_status("ethernetip", False)
-        log.error("Error en servidor CIP mínimo: %s", exc)
+        log.error("Minimal CIP server error: %s", exc)
 
 
 async def _value_updater():
@@ -95,7 +95,7 @@ async def _cip_handler(reader: asyncio.StreamReader, writer: asyncio.StreamWrite
     """Maneja conexiones EtherNet/IP CIP básicas."""
     import struct
     addr = writer.get_extra_info('peername')
-    log.debug("EIP: cliente %s", addr)
+    log.debug("EIP: client %s", addr)
     session_handle = 0x01020304
 
     try:
@@ -135,6 +135,6 @@ async def _cip_handler(reader: asyncio.StreamReader, writer: asyncio.StreamWrite
     except (asyncio.TimeoutError, ConnectionResetError, BrokenPipeError):
         pass
     except Exception as exc:
-        log.debug("EIP cliente error: %s", exc)
+        log.debug("EIP client error: %s", exc)
     finally:
         writer.close()

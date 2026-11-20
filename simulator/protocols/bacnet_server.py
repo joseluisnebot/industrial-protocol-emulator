@@ -34,7 +34,7 @@ _UNIT_MAP = {
 
 
 async def run():
-    log.info("Iniciando servidor BACnet/IP — Device ID=%d", DEVICE_ID)
+    log.info("Starting BACnet/IP server — Device ID=%d", DEVICE_ID)
     state.set_status("bacnet", False)
     try:
         from bacpypes3.app import Application
@@ -69,7 +69,7 @@ async def run():
             ai_objects[tag["id"]] = ai
 
         state.set_status("bacnet", True)
-        log.info("BACnet/IP listo — Device %d en UDP 0.0.0.0:47808", DEVICE_ID)
+        log.info("BACnet/IP ready — Device %d on UDP 0.0.0.0:47808", DEVICE_ID)
 
         while True:
             for tag in tags:
@@ -81,8 +81,8 @@ async def run():
             await asyncio.sleep(UPDATE_INTERVAL)
 
     except ImportError:
-        log.warning("bacpypes3 no disponible — servidor BACnet desactivado")
+        log.warning("bacpypes3 not available — BACnet server disabled")
         state.set_status("bacnet", False)
     except Exception as exc:
         state.set_status("bacnet", False)
-        log.error("Error en servidor BACnet: %s", exc)
+        log.error("BACnet server error: %s", exc)

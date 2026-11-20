@@ -14,7 +14,7 @@ UPDATE_INTERVAL = 1.0
 
 
 async def run():
-    log.info("Iniciando servidor OPC-UA en puerto %d", PORT)
+    log.info("Starting OPC-UA server on port %d", PORT)
     state.set_status("opcua", False)
     try:
         server = Server()
@@ -44,7 +44,7 @@ async def run():
             node_map[tag["id"]] = node
 
         state.set_status("opcua", True)
-        log.info("OPC-UA listo en opc.tcp://0.0.0.0:%d", PORT)
+        log.info("OPC-UA ready on opc.tcp://0.0.0.0:%d", PORT)
 
         async with server:
             while True:
@@ -57,4 +57,4 @@ async def run():
                 await asyncio.sleep(UPDATE_INTERVAL)
     except Exception as exc:
         state.set_status("opcua", False)
-        log.error("Error en servidor OPC-UA: %s", exc)
+        log.error("OPC-UA server error: %s", exc)
